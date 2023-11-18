@@ -1,5 +1,11 @@
 'use strict';
-Object.defineProperty(exports, '__esModule', { value: true });
+
+function _defineProperty(obj, key, value) { key = _toPropertyKey(key); if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+function _toPropertyKey(arg) { var key = _toPrimitive(arg, "string"); return typeof key === "symbol" ? key : String(key); }
+function _toPrimitive(input, hint) { if (typeof input !== "object" || input === null) return input; var prim = input[Symbol.toPrimitive]; if (prim !== undefined) { var res = prim.call(input, hint || "default"); if (typeof res !== "object") return res; throw new TypeError("@@toPrimitive must return a primitive value."); } return (hint === "string" ? String : Number)(input); }
+Object.defineProperty(exports, '__esModule', {
+  value: true
+});
 exports.ECPairFactory = exports.networks = void 0;
 const networks = require('./networks');
 exports.networks = networks;
@@ -7,14 +13,11 @@ const types = require('./types');
 const randomBytes = require('randombytes');
 const wif = require('wif');
 const testecc_1 = require('./testecc');
-const isOptions = types.typeforce.maybe(
-  types.typeforce.compile({
-    compressed: types.maybe(types.Boolean),
-    network: types.maybe(types.Network),
-  }),
-);
-const toXOnly = (pubKey) =>
-  pubKey.length === 32 ? pubKey : pubKey.slice(1, 33);
+const isOptions = types.typeforce.maybe(types.typeforce.compile({
+  compressed: types.maybe(types.Boolean),
+  network: types.maybe(types.Network)
+}));
+const toXOnly = pubKey => pubKey.length === 32 ? pubKey : pubKey.slice(1, 33);
 function ECPairFactory(ecc) {
   (0, testecc_1.testEcc)(ecc);
   function isPoint(maybePoint) {
@@ -22,8 +25,7 @@ function ECPairFactory(ecc) {
   }
   function fromPrivateKey(buffer, options) {
     types.typeforce(types.Buffer256bit, buffer);
-    if (!ecc.isPrivate(buffer))
-      throw new TypeError('Private key not in range [1, n)');
+    if (!ecc.isPrivate(buffer)) throw new TypeError('Private key not in range [1, n)');
     types.typeforce(isOptions, options);
     return new ECPair(buffer, undefined, options);
   }
@@ -37,11 +39,9 @@ function ECPairFactory(ecc) {
     const version = decoded.version;
     // list of networks?
     if (types.Array(network)) {
-      network = network
-        .filter((x) => {
-          return version === x.wif;
-        })
-        .pop();
+      network = network.filter(x => {
+        return version === x.wif;
+      }).pop();
       if (!network) throw new Error('Unknown network version');
       // otherwise, assume a network object (or default to bitcoin)
     } else {
@@ -50,7 +50,7 @@ function ECPairFactory(ecc) {
     }
     return fromPrivateKey(decoded.privateKey, {
       compressed: decoded.compressed,
-      network: network,
+      network: network
     });
   }
   function makeRandom(options) {
@@ -65,21 +65,19 @@ function ECPairFactory(ecc) {
     return fromPrivateKey(d, options);
   }
   class ECPair {
-    __D;
-    __Q;
-    compressed;
-    network;
-    lowR;
     constructor(__D, __Q, options) {
+      _defineProperty(this, "__D", void 0);
+      _defineProperty(this, "__Q", void 0);
+      _defineProperty(this, "compressed", void 0);
+      _defineProperty(this, "network", void 0);
+      _defineProperty(this, "lowR", void 0);
       this.__D = __D;
       this.__Q = __Q;
       this.lowR = false;
       if (options === undefined) options = {};
-      this.compressed =
-        options.compressed === undefined ? true : options.compressed;
+      this.compressed = options.compressed === undefined ? true : options.compressed;
       this.network = options.network || networks.bitcoin;
-      if (__Q !== undefined)
-        this.__Q = Buffer.from(ecc.pointCompress(__Q, this.compressed));
+      if (__Q !== undefined) this.__Q = Buffer.from(ecc.pointCompress(__Q, this.compressed));
     }
     get privateKey() {
       return this.__D;
@@ -124,43 +122,34 @@ function ECPairFactory(ecc) {
     }
     signSchnorr(hash) {
       if (!this.privateKey) throw new Error('Missing private key');
-      if (!ecc.signSchnorr)
-        throw new Error('signSchnorr not supported by ecc library');
+      if (!ecc.signSchnorr) throw new Error('signSchnorr not supported by ecc library');
       return Buffer.from(ecc.signSchnorr(hash, this.privateKey));
     }
     verify(hash, signature) {
       return ecc.verify(hash, this.publicKey, signature);
     }
     verifySchnorr(hash, signature) {
-      if (!ecc.verifySchnorr)
-        throw new Error('verifySchnorr not supported by ecc library');
+      if (!ecc.verifySchnorr) throw new Error('verifySchnorr not supported by ecc library');
       return ecc.verifySchnorr(hash, this.publicKey.subarray(1, 33), signature);
     }
     tweakFromPublicKey(t) {
       const xOnlyPubKey = toXOnly(this.publicKey);
       const tweakedPublicKey = ecc.xOnlyPointAddTweak(xOnlyPubKey, t);
-      if (!tweakedPublicKey || tweakedPublicKey.xOnlyPubkey === null)
-        throw new Error('Cannot tweak public key!');
-      const parityByte = Buffer.from([
-        tweakedPublicKey.parity === 0 ? 0x02 : 0x03,
-      ]);
-      return fromPublicKey(
-        Buffer.concat([parityByte, tweakedPublicKey.xOnlyPubkey]),
-        { network: this.network, compressed: this.compressed },
-      );
+      if (!tweakedPublicKey || tweakedPublicKey.xOnlyPubkey === null) throw new Error('Cannot tweak public key!');
+      const parityByte = Buffer.from([tweakedPublicKey.parity === 0 ? 0x02 : 0x03]);
+      return fromPublicKey(Buffer.concat([parityByte, tweakedPublicKey.xOnlyPubkey]), {
+        network: this.network,
+        compressed: this.compressed
+      });
     }
     tweakFromPrivateKey(t) {
-      const hasOddY =
-        this.publicKey[0] === 3 ||
-        (this.publicKey[0] === 4 && (this.publicKey[64] & 1) === 1);
-      const privateKey = hasOddY
-        ? ecc.privateNegate(this.privateKey)
-        : this.privateKey;
+      const hasOddY = this.publicKey[0] === 3 || this.publicKey[0] === 4 && (this.publicKey[64] & 1) === 1;
+      const privateKey = hasOddY ? ecc.privateNegate(this.privateKey) : this.privateKey;
       const tweakedPrivateKey = ecc.privateAdd(privateKey, t);
       if (!tweakedPrivateKey) throw new Error('Invalid tweaked private key!');
       return fromPrivateKey(Buffer.from(tweakedPrivateKey), {
         network: this.network,
-        compressed: this.compressed,
+        compressed: this.compressed
       });
     }
   }
@@ -169,7 +158,7 @@ function ECPairFactory(ecc) {
     fromPrivateKey,
     fromPublicKey,
     fromWIF,
-    makeRandom,
+    makeRandom
   };
 }
 exports.ECPairFactory = ECPairFactory;
